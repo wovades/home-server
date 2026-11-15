@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# undo-edit FILE        - puts back the copy from before your last edit (shows the change first)
+# undo-edit FILE list   - shows all saved copies of that file
+set -euo pipefail
+source /DATA/scripts/tools/_common.sh
+[[ $# -ge 1 ]] || fail "Use: undo-edit <file>   or   undo-edit <file> list"
+as_root "$@"
+
+file=$(readlink -f -- "$1")
+key=$(copy_key "$file")
+mapfile -t copies < <(ls -1 "$EDIT_BACKUPS/$key".* 2>/dev/null | sort -r || true)
+[[ ${#copies[@]} -gt 0 ]] || fail "No saved copies of $file. (Older versions: restore $file)"
+
+if [[ ${2:-} == list ]]; then
+  say "Saved copies of $file (newest first):"
+  for c in "${copies[@]}"; do stamp=${c##*.}; echo "  ${stamp:0:15}"; done
+  exit 0
+fi
+
+latest=${copies[0]}
+stamp=${latest##*.}; stamp=${stamp:0:15}
+say "Going back to the copy from $stamp. What changes (- now, + after):"
+diff -u --label now --label "copy $stamp" "$file" "$latest" | tail -n +3 | head -n 40 || true
+ask "Put this copy back?" || { say "Nothing changed."; exit 0; }
+save_copy "$file" >/dev/null   # so this undo can be undone too
+cat "$latest" > "$file"
+ok "Done. (Running undo-edit again flips back to how it was just now.)"
+[[ $file == "$HA_CONFIG"/* ]] && say "Reload it in HA: Developer tools → YAML."
+exit 0

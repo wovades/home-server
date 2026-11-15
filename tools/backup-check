@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# backup-check - what the backup would take, and app folders it skips (changes nothing)
+set -euo pipefail
+source /DATA/scripts/tools/_common.sh
+as_root "$@"
+python3 /DATA/scripts/backup.py --list

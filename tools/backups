@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# backups - list the backups and show how the last one went
+set -euo pipefail
+source /DATA/scripts/tools/_common.sh
+as_root "$@"
+say "Backups (newest last):"
+ls -1sh "$BACKUP_DIR"/homeserver-*.tar.gz 2>/dev/null | awk '{n=split($2,p,"/"); sub(/homeserver-/,"",p[n]); sub(/.tar.gz/,"",p[n]); printf "  %s  %s\n", p[n], $1}' || warn "No backups yet"
+python3 - "$BACKUP_DIR/last_backup.json" <<'PY'
+import json, sys
+try:
+    b = json.load(open(sys.argv[1]))
+except OSError:
+    sys.exit()
+err = b.get("errors") or []
+print(f"\nLast backup: {b['date']}, {b['files']} files" + (f", \033[1;31m{len(err)} errors\033[0m" if err else ", no errors"))
+for e in err[:5]:
+    print("  " + e)
+PY
+echo "Next run: $(systemctl list-timers homeserver-backup.timer --no-pager | awk 'NR==2{print $1, $2, $3}')"

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# backup-now - make a backup straight away (same as the 03:30 one)
+set -euo pipefail
+source /DATA/scripts/tools/_common.sh
+as_root "$@"
+say "Backing up… (usually under a minute)"
+if systemctl start homeserver-backup.service; then
+  journalctl -u homeserver-backup -n 3 --no-pager -o cat
+  ok "Backup done"
+else
+  journalctl -u homeserver-backup -n 15 --no-pager -o cat
+  fail "Backup failed (see above)"
+fi

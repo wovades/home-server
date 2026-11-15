@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# lt-restart - restart Life Tracker and check it answers
+set -euo pipefail
+source /DATA/scripts/tools/_common.sh
+as_root "$@"
+systemctl restart lifetracker
+sleep 3
+if python3 -c "import urllib.request as u; u.urlopen('http://127.0.0.1:3004/health', timeout=5)" 2>/dev/null; then
+  ok "Life Tracker is running"
+else
+  journalctl -u lifetracker -n 15 --no-pager -o cat
+  fail "Life Tracker isn't answering (see above)"
+fi

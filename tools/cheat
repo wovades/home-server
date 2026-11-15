@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# cheat        - show the cheat sheet
+# cheat WORD   - only the lines about WORD (e.g. cheat restore)
+source /DATA/scripts/tools/_common.sh
+sheet=$TOOLS_DIR/CHEATSHEET.md
+if [[ $# -eq 0 ]]; then
+  less -R -F "$sheet" 2>/dev/null || cat "$sheet"
+else
+  grep -i --color=always -- "$*" "$sheet" || warn "Nothing about '$*'. Type: cheat"
+fi

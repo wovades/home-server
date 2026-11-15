@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# log-tail [N] - the last N lines of tag_log.csv (default 20)
+source /DATA/scripts/tools/_common.sh
+as_root "$@"
+tail -n "${1:-20}" "$TAG_LOG"

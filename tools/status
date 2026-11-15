@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# status - one overview of the server
+set -uo pipefail
+source /DATA/scripts/tools/_common.sh
+as_root "$@"
+say "Server"
+echo "  Up $(uptime -p | sed 's/^up //')"
+free -h | awk '/^Mem:/{print "  RAM available: "$7" of "$2}'
+df -h /DATA | awk 'NR==2{print "  Disk: "$4" free of "$2" ("$5" used)"}'
+
+say "Apps"
+total=$(docker ps -a -q | wc -l); running=$(docker ps -q | wc -l)
+echo "  $running of $total running"
+docker ps -a --filter status=exited --filter status=dead --filter status=restarting --format '  ! {{.Names}}: {{.Status}}'
+if python3 -c "import urllib.request as u; u.urlopen('http://127.0.0.1:3004/health', timeout=5)" 2>/dev/null; then
+  echo "  Life Tracker: running"
+else
+  echo "  ! Life Tracker: not answering (lt-logs)"
+fi
+
+say "Backup"
+python3 - "$BACKUP_DIR/last_backup.json" <<'PY'
+import datetime, json, sys
+try:
+    b = json.load(open(sys.argv[1]))
+except OSError:
+    print("  ! no backup found"); sys.exit()
+age = (datetime.date.today() - datetime.date.fromisoformat(b["date"])).days
+err = len(b.get("errors") or [])
+mark = "  " if age <= 1 and not err else "  ! "
+print(f"{mark}Last: {b['date']}" + (f" ({age} days ago)" if age > 1 else "") + (f", {err} errors" if err else ", ok"))
+PY

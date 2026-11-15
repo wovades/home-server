@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+"""log-fix - edit tag_log.csv safely.
+
+You edit a copy. When you save, your changes are applied and any lines Home Assistant
+wrote in the meantime are kept, so a tap during editing is never lost. A copy of the
+old log is kept: 'undo-edit' puts it back.
+"""
+import datetime
+import difflib
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+
+sys.dont_write_bytecode = True
+sys.path.insert(0, "/DATA/scripts/tools")
+
+TAG_LOG = "/DATA/AppData/big-bear-home-assistant/config/tag_log.csv"
+EDIT_BACKUPS = "/DATA/edit-backups"
+KEEP_COPIES = 20
+
+
+def color(code, text):
+    return f"\033[1;{code}m{text}\033[0m"
+
+
+def save_copy(path):
+    os.makedirs(EDIT_BACKUPS, mode=0o700, exist_ok=True)
+    key = path.lstrip("/").replace("/", "__")
+    shutil.copy2(path, os.path.join(EDIT_BACKUPS, f"{key}.{datetime.datetime.now():%Y%m%d-%H%M%S-%f}"))
+    old = sorted((f for f in os.listdir(EDIT_BACKUPS) if f.startswith(key + ".")), reverse=True)
+    for f in old[KEEP_COPIES:]:
+        os.remove(os.path.join(EDIT_BACKUPS, f))
+
+
+def read(path):
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
+def main():
+    if os.geteuid() != 0:
+        os.execvp("sudo", ["sudo", sys.executable, os.path.realpath(__file__)] + sys.argv[1:])
+    import _check as check
+
+    before = read(TAG_LOG)
+    fd, tmp = tempfile.mkstemp(prefix="tag_log-", suffix=".csv")
+    os.close(fd)
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(before)
+    print(color(36, "Opening a copy of the log. The newest lines are at the bottom (Alt+/ jumps there)."))
+    while True:
+        subprocess.run(["nano", tmp])
+        edited = read(tmp)
+        if edited == before:
+            os.remove(tmp)
+            print(color(32, "✓ No changes."))
+            return
+        bad = check.bad_log_lines(edited)
+        if not bad:
+            break
+        print(color(33, "! These lines don't look like 'YYYY-MM-DD,HH:MM,entry':"))
+        for n, line in bad[:10]:
+            print(f"  line {n}: {line}")
+        answer = input("Fix them [f], save anyway [s] or cancel [c]? ").strip().lower()
+        if answer.startswith("s"):
+            break
+        if answer.startswith("c"):
+            os.remove(tmp)
+            print("Nothing changed.")
+            return
+
+    now = read(TAG_LOG)
+    if not now.startswith(before):
+        print(color(31, f"✗ The log changed in an unexpected way while you were editing. Nothing saved; your edited copy is {tmp}"))
+        sys.exit(1)
+    new_lines = now[len(before):]
+    if edited and not edited.endswith("\n"):
+        edited += "\n"
+    save_copy(TAG_LOG)
+    with open(TAG_LOG, "w", encoding="utf-8") as f:   # same file, so owner and permissions stay
+        f.write(edited + new_lines)
+    os.remove(tmp)
+
+    removed = added = 0
+    for line in difflib.ndiff(before.splitlines(), edited.splitlines()):
+        removed += line.startswith("- ")
+        added += line.startswith("+ ")
+    print(color(32, f"✓ Saved: {removed} line(s) removed or changed, {added} added."))
+    if new_lines:
+        print(f"  Kept {new_lines.count(chr(10))} line(s) Home Assistant wrote while you were editing.")
+    print("  Undo: undo-edit " + TAG_LOG)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print()
+        sys.exit(1)

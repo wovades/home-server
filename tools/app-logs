@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# app-logs NAME [N] - the last N log lines of an app (default 40). Part of the name is enough.
+set -euo pipefail
+source /DATA/scripts/tools/_common.sh
+[[ $# -ge 1 ]] || fail "Use: app-logs <name> [lines]   (names: apps)"
+as_root "$@"
+c=$(find_container "$1")
+say "Last ${2:-40} lines of $c:"
+docker logs --tail "${2:-40}" "$c" 2>&1

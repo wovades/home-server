@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# apps - all apps (containers) and whether they're up
+source /DATA/scripts/tools/_common.sh
+as_root "$@"
+docker ps -a --format 'table {{.Names}}\t{{.Status}}'
