@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# lt-logs [N] - the last N messages from Life Tracker (default 30)
+source /DATA/scripts/tools/_common.sh
+as_root "$@"
+journalctl -u lifetracker -n "${1:-30}" --no-pager

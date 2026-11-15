@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# edit-ha NAME - edit a Home Assistant file by its short name (uses 'edit', so it's safe).
+set -euo pipefail
+source /DATA/scripts/tools/_common.sh
+
+case ${1:-} in
+  automations)          f=automations.yaml ;;
+  scripts)              f=scripts.yaml ;;
+  configuration|config) f=configuration.yaml ;;
+  scenes)               f=scenes.yaml ;;
+  themes)               f=themes/chores.yaml ;;
+  *) fail "Use: edit-ha automations | scripts | configuration | scenes | themes" ;;
+esac
+exec "$TOOLS_DIR/edit" "$HA_CONFIG/$f"

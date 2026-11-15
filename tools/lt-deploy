@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# lt-deploy - install the latest merged Life Tracker (runs ~/life-tracker/deploy.sh)
+set -euo pipefail
+user=${SUDO_USER:-$USER}
+exec "$(getent passwd "$user" | cut -d: -f6)/life-tracker/deploy.sh"

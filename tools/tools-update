@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# tools-update - get the latest merged version of these tools from GitHub and install it
+set -euo pipefail
+user=${SUDO_USER:-$USER}
+repo="$(getent passwd "$user" | cut -d: -f6)/home-server"
+[[ -d $repo/.git ]] || { echo "No clone at $repo"; exit 1; }
+if [[ $EUID -eq 0 ]]; then sudo -u "$user" git -C "$repo" pull --ff-only; else git -C "$repo" pull --ff-only; fi
+sudo "$repo/install.sh"

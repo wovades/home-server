@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+"""restore FILE [DATE|list] - gets one file back from the nightly backup.
+
+  restore /DATA/AppData/big-bear-home-assistant/config/automations.yaml
+  restore automations.yaml 2026-11-14        (short names work for Home Assistant files)
+  restore automations.yaml list              (which backups have it)
+
+Shows what will change and asks first. The current version is kept, so 'undo-edit FILE' undoes it.
+"""
+import datetime
+import difflib
+import os
+import shutil
+import sys
+import tarfile
+
+BACKUP_DIR = "/DATA/backups"
+EDIT_BACKUPS = "/DATA/edit-backups"
+HA_CONFIG = "/DATA/AppData/big-bear-home-assistant/config"
+PREFIX = "homeserver-"
+EXTRA_DIRS = ["/var/lib/casaos/apps", "/etc/casaos", "/DATA/scripts/tools"]   # same as backup.py
+KEEP_COPIES = 20
+
+
+def color(code, text):
+    return f"\033[1;{code}m{text}\033[0m"
+
+
+def fail(msg):
+    print(color(31, "✗ " + msg), file=sys.stderr)
+    sys.exit(1)
+
+
+def resolve(name):
+    """Full path; a bare Home Assistant file name like automations.yaml also works."""
+    if os.sep not in name and not os.path.exists(name) and os.path.exists(os.path.join(HA_CONFIG, name)):
+        return os.path.join(HA_CONFIG, name)
+    return os.path.realpath(name)
+
+
+def member_for(path):
+    """Where backup.py stores this file inside the archive (without the dated top folder)."""
+    if path.startswith("/DATA/AppData/"):
+        return "AppData/" + path[len("/DATA/AppData/"):]
+    for base in EXTRA_DIRS:
+        if path.startswith(base + "/"):
+            return "system/" + base.strip("/").replace("/", "_") + "/" + path[len(base) + 1:]
+    return "system/" + os.path.basename(path)
+
+
+def archives():
+    """[(date, path)] newest first."""
+    found = []
+    for fn in os.listdir(BACKUP_DIR):
+        if fn.startswith(PREFIX) and fn.endswith(".tar.gz"):
+            try:
+                found.append((datetime.date.fromisoformat(fn[len(PREFIX):-7]), os.path.join(BACKUP_DIR, fn)))
+            except ValueError:
+                pass
+    return sorted(found, reverse=True)
+
+
+def read_member(archive, date, member):
+    name = f"{PREFIX}{date.isoformat()}/{member}"
+    with tarfile.open(archive) as tar:
+        try:
+            f = tar.extractfile(name)
+        except KeyError:
+            return None
+        return f.read() if f else None
+
+
+def save_copy(path):
+    os.makedirs(EDIT_BACKUPS, mode=0o700, exist_ok=True)
+    key = path.lstrip("/").replace("/", "__")
+    dest = os.path.join(EDIT_BACKUPS, f"{key}.{datetime.datetime.now():%Y%m%d-%H%M%S-%f}")
+    shutil.copy2(path, dest)
+    old = sorted((f for f in os.listdir(EDIT_BACKUPS) if f.startswith(key + ".")), reverse=True)
+    for f in old[KEEP_COPIES:]:
+        os.remove(os.path.join(EDIT_BACKUPS, f))
+
+
+def main():
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        print(__doc__)
+        sys.exit(0)
+    if os.geteuid() != 0:
+        os.execvp("sudo", ["sudo", sys.executable, os.path.realpath(__file__)] + sys.argv[1:])
+
+    path = resolve(sys.argv[1])
+    member = member_for(path)
+    found = archives()
+    if not found:
+        fail(f"No backups in {BACKUP_DIR}.")
+
+    if len(sys.argv) > 2 and sys.argv[2] == "list":
+        print(color(36, f"Backups that have {path}:"))
+        for date, archive in found:
+            data = read_member(archive, date, member)
+            if data is not None:
+                print(f"  {date}  ({len(data)} bytes)")
+        return
+
+    if len(sys.argv) > 2:
+        try:
+            want = datetime.date.fromisoformat(sys.argv[2])
+        except ValueError:
+            fail("Give the date as YYYY-MM-DD, or 'list'.")
+        found = [(d, a) for d, a in found if d == want]
+        if not found:
+            fail(f"No backup from {want}. Type: backups")
+    date, archive = found[0]
+    data = read_member(archive, date, member)
+    if data is None:
+        fail(f"{path} isn't in the backup of {date}. Only settings are backed up (not movies, logs or caches).")
+
+    current = b""
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            current = f.read()
+    if current == data:
+        print(color(32, f"✓ The file is already the same as in the backup of {date}. Nothing to do."))
+        return
+
+    if data.startswith(b"SQLite format 3"):
+        print(color(33, "! This is a database. Stop its app first (CasaOS → Stop), restore, then start it again."))
+    try:
+        old, new = current.decode().splitlines(), data.decode().splitlines()
+        diff = list(difflib.unified_diff(old, new, "now", f"backup {date}", lineterm="", n=1))
+        print(color(36, f"Changes if you restore the version of {date} (- now, + after):"))
+        print("\n".join(diff[2:42]) + ("\n  …" if len(diff) > 42 else ""))
+    except UnicodeDecodeError:
+        print(color(36, f"Binary file: now {len(current)} bytes, backup {len(data)} bytes."))
+
+    if input(f"Restore {path} from {date}? [y/N] ").strip().lower() not in ("y", "yes"):
+        print("Nothing changed.")
+        return
+    if os.path.exists(path):
+        save_copy(path)
+        with open(path, "wb") as f:   # same file, so owner and permissions stay
+            f.write(data)
+    else:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(data)
+    print(color(32, f"✓ Restored from {date}. Undo with: undo-edit {path}"))
+    if path.startswith(HA_CONFIG):
+        print("Reload it in HA: Developer tools → YAML (or Restart for configuration.yaml).")
+    elif "lifetracker" in path:
+        print("Then: lt-restart")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print()
+        sys.exit(1)

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# edit FILE - keeps a copy, opens nano, checks the file afterwards.
+set -euo pipefail
+source /DATA/scripts/tools/_common.sh
+[[ $# -eq 1 ]] || fail "Use: edit <file>   (example: edit /DATA/scripts/backup.py)"
+as_root "$@"
+
+file=$(readlink -f -- "$1")
+[[ -f $file ]] || fail "No such file: $1"
+[[ $file == "$TAG_LOG" ]] && exec "$TOOLS_DIR/log-fix"
+
+copy=$(save_copy "$file")
+say "Copy saved. Opening $file"
+nano "$file"
+
+if cmp -s "$file" "$copy"; then
+  rm -f "$copy"
+  ok "No changes."
+  exit 0
+fi
+
+problem=0
+case $file in
+  *.service|*.timer)
+    out=$(systemd-analyze verify "$file" 2>&1 | grep -v -i casaos || true)
+    if [[ -n $out ]]; then echo "$out"; problem=1; else ok "Service file looks right"; fi
+    [[ $file == /etc/systemd/* ]] && { systemctl daemon-reload; ok "systemd reloaded"; } ;;
+  *)
+    if out=$(python3 "$TOOLS_DIR/_check.py" "$file"); then ok "$out"
+    else
+      rc=$?
+      if [[ $rc -eq 2 ]]; then warn "$out"; else warn "$out"; problem=1; fi
+    fi ;;
+esac
+
+if [[ $file == "$HA_CONFIG"/*.yaml || $file == "$HA_CONFIG"/themes/* ]]; then
+  if ask_yes "Let Home Assistant check its configuration? (takes up to a minute)"; then
+    ha=$(ha_container)
+    if docker exec "$ha" python -m homeassistant --script check_config -c /config >/tmp/ha-check.txt 2>&1 \
+       && ! grep -q 'Failed config' /tmp/ha-check.txt; then
+      ok "Home Assistant accepts it"
+    else
+      tail -n 15 /tmp/ha-check.txt; problem=1
+    fi
+    rm -f /tmp/ha-check.txt
+  fi
+  say "To use it: HA → Developer tools → YAML → reload that part (or Restart for configuration.yaml)."
+fi
+
+if [[ $problem -eq 1 ]] && ask "Something looks wrong. Put the old version back now?"; then
+  cat "$copy" > "$file"
+  ok "Old version is back."
+  exit 1
+fi
+say "Changed your mind later? Type: undo-edit $file"
