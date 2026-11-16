@@ -54,4 +54,17 @@ system/etc_casaos/gateway.ini
 system/DATA_scripts_tools/cheat"
 [[ $out == "$expected" ]] || { echo "restore paths: got $out"; fails=1; }
 
+# _check: HA's header lines and Life Tracker undo lines are fine in tag_log.csv
+out=$(python3 - <<'PY'
+import sys; sys.path.insert(0, "tools")
+import _check
+log = ("Home Assistant (Log started: 2026-11-01T08:00:00.000000+00:00)\n" + "-" * 80 + "\n"
+       "2026-11-15,08:10,coffee\n2026-11-15,08:12,undo 2026-11-15 08:10 coffee\n"
+       "2026-11-15,08:13,undo 2026-11-15 08:12 undo 2026-11-15 08:10 coffee\n"
+       "2026-11-15,09:00,Coffee\n" + "-" * 80 + "\n2026-11-15,coffee\n")
+print([n for n, _ in _check.bad_log_lines(log)])
+PY
+)
+[[ $out == "[6, 7, 8]" ]] || { echo "log check: got $out"; fails=1; }
+
 [[ $fails -eq 0 ]] && echo "All checks passed" || exit 1
