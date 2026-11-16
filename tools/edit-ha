@@ -9,6 +9,7 @@ case ${1:-} in
   configuration|config) f=configuration.yaml ;;
   scenes)               f=scenes.yaml ;;
   themes)               f=themes/chores.yaml ;;
-  *) fail "Use: edit-ha automations | scripts | configuration | scenes | themes" ;;
+  dashboard)            f=dashboards/chores.yaml ;;
+  *) fail "Use: edit-ha automations | scripts | configuration | scenes | themes | dashboard" ;;
 esac
 exec "$TOOLS_DIR/edit" "$HA_CONFIG/$f"

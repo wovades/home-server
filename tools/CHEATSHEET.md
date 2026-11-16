@@ -18,7 +18,8 @@ Gone wrong after a few days? `restore <file>` gets last night's version from the
 ## Editing files safely
   edit <file>              copy → nano → check. Example: edit /DATA/scripts/backup.py
   edit-ha automations      the same for Home Assistant files:
-                           automations | scripts | configuration | scenes | themes
+                           automations | scripts | configuration | scenes | themes | dashboard
+                           (dashboard = the Chores dashboard; afterwards refresh it in HA)
   undo-edit <file>         back to the copy from before your last edit (shows the change, asks)
   undo-edit <file> list    all saved copies (the newest 20 per file are kept)
   restore <file>           a file from last night's backup (shows the change, asks)
