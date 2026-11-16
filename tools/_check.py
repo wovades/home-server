@@ -5,7 +5,10 @@ import json
 import re
 import sys
 
-LOG_LINE = re.compile(r"^\d{4}-\d{2}-\d{2},\d{2}:\d{2},[a-z0-9][a-z0-9-]*$")
+# One tap, or an undo line from Life Tracker v8 ("undo 2026-11-15 08:10 coffee", which can itself be undone)
+LOG_LINE = re.compile(r"^\d{4}-\d{2}-\d{2},\d{2}:\d{2},(undo \d{4}-\d{2}-\d{2} \d{2}:\d{2} )*[a-z0-9][a-z0-9-]*$")
+# Home Assistant's File integration starts the file with a title line and a line of dashes
+HEADER = re.compile(r"^(.*\(Log started: .*\)|-{10,})\s*$")
 
 
 def check_yaml(text):
@@ -27,8 +30,16 @@ def check_yaml(text):
 
 
 def bad_log_lines(text):
-    return [(n, line) for n, line in enumerate(text.splitlines(), 1)
-            if line.strip() and not LOG_LINE.match(line)]
+    bad, top = [], True
+    for n, line in enumerate(text.splitlines(), 1):
+        if not line.strip():
+            continue
+        if top and HEADER.match(line):   # header lines are fine, but only above the first tap
+            continue
+        top = False
+        if not LOG_LINE.match(line):
+            bad.append((n, line))
+    return bad
 
 
 def main(path):
