@@ -37,6 +37,28 @@ rm -rf "$tmp"
 expected="['qBittorrent/BT_backup/a.fastresume', 'qBittorrent/BT_backup/a.torrent', 'qBittorrent/categories.json', 'qBittorrent/qBittorrent.conf'] []"
 [[ $out == "$expected" ]] || { echo "backup.py qBittorrent rule: got $out"; fails=1; }
 
+# backup.py: the CWA rule takes its databases, not processed books, logs or WAL files
+tmp=$(mktemp -d)
+c="$tmp/calibre-web-automated/config"
+mkdir -p "$c/processed_books/imported" "$c/log_archive"
+touch "$c/app.db" "$c/cwa.db" "$c/app.db-wal" "$c/calibre-web.log" \
+      "$c/processed_books/imported/book.epub" "$c/log_archive/old.db"
+out=$(python3 - "$tmp" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("backup", "scripts/backup.py")
+b = importlib.util.module_from_spec(spec); spec.loader.exec_module(b)
+b.APPDATA = sys.argv[1]
+files, _, unmatched = b.plan()
+print(sorted(r.split("calibre-web-automated/", 1)[1] for _, r, label in files if label == "Books (CWA)"), unmatched)
+PY
+)
+rm -rf "$tmp"
+expected="['config/app.db', 'config/cwa.db'] []"
+[[ $out == "$expected" ]] || { echo "backup.py CWA rule: got $out"; fails=1; }
+
+# install.sh: the tools folder goes in FRONT of the PATH (Debian's /usr/bin/edit must not win)
+grep -qF 'PATH="/DATA/scripts/tools:$PATH"' install.sh || { echo "install.sh: tools not in front of PATH"; fails=1; }
+
 # restore: finds files where backup.py puts them
 out=$(python3 - <<'PY'
 import importlib.util

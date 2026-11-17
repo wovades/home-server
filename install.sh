@@ -19,10 +19,11 @@ chmod 644 "$DEST/_common.sh" "$DEST/_check.py" "$DEST/CHEATSHEET.md"
 echo "✓ Tools installed in $DEST"
 
 # 2. Make them available as commands (new logins pick this up)
+#    In FRONT of the PATH: Debian has its own /usr/bin/edit (run-mailcap), which would win otherwise
 cat > /etc/profile.d/home-tools.sh <<'EOF'
-case ":$PATH:" in *:/DATA/scripts/tools:*) ;; *) PATH="$PATH:/DATA/scripts/tools" ;; esac
+case "$PATH" in /DATA/scripts/tools:*) ;; *) PATH="/DATA/scripts/tools:$PATH" ;; esac
 EOF
-echo "✓ Added to PATH"
+echo "✓ Added to the front of the PATH"
 
 # 3. Folder for the copies 'edit' keeps (root only)
 mkdir -p /DATA/edit-backups && chmod 700 /DATA/edit-backups
@@ -45,4 +46,4 @@ else
 fi
 
 echo
-echo "Done. Log out and back in (or run: source /etc/profile.d/home-tools.sh), then type: cheat"
+echo "Done. Log out and back in (or run: source /etc/profile.d/home-tools.sh; hash -r), then type: cheat"
