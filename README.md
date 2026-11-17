@@ -16,7 +16,8 @@ sudo ~/home-server/install.sh
 
 After that, to get a merged change: `tools-update`
 
-`install.sh` copies `tools/` to `/DATA/scripts/tools`, adds that folder to the PATH, and
+`install.sh` copies `tools/` to `/DATA/scripts/tools`, puts that folder at the front of the
+PATH (so `edit` is ours, not Debian's own `/usr/bin/edit`), and
 installs `scripts/backup.py` to `/DATA/scripts/backup.py` (it shows the difference and asks
 first). It runs `tests/check.sh` before installing anything.
 

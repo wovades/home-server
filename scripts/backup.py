@@ -48,6 +48,9 @@ RULES = [
     # qBittorrent: settings, categories and torrent resume data only - never the downloads
     ("qBittorrent", ["qbittorrent"], ["*.conf", "*.json", "*.torrent", "*.fastresume"],
      ["logs/*", "GeoDB/*", "*.log", "*.log.*"]),
+    # Calibre-Web Automated: its databases only (users, shelves, Kobo token, settings) - never the books
+    ("Books (CWA)", ["calibre-web"], ["*.db"],
+     ["processed_books/*", "log_archive/*", "*.db-wal", "*.db-shm"]),
 ]
 
 EXTRA_FILES = [  # outside AppData
@@ -55,6 +58,7 @@ EXTRA_FILES = [  # outside AppData
     "/etc/systemd/system/lifetracker.service",
     "/etc/systemd/system/homeserver-backup.service",
     "/etc/systemd/system/homeserver-backup.timer",
+    "/DATA/Books/library/metadata.db",  # e-book library: titles, authors, covers info (not the books)
 ]
 
 
