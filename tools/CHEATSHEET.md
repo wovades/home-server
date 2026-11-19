@@ -41,6 +41,8 @@ Copies kept by edit/undo-edit/restore: /DATA/edit-backups (root only, not in the
 
 ## Life Tracker and the log
   lt-deploy                install the latest merged version (after merging a pull request)
+  dash-deploy              install the latest merged Chores dashboard + icon colours
+                           (shows the changes, asks; undo-edit puts the old one back)
   lt-restart               restart it and check it answers
   lt-logs [lines]          its latest messages (reminders, confirmations, errors)
   log-tail [lines]         the last lines of tag_log.csv (default 20)

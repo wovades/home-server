@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# dash-deploy - install the latest merged Chores dashboard and its icon colours from ~/life-tracker
+# Gets the latest version from GitHub, shows what changes, asks, keeps a copy (undo-edit works).
+set -euo pipefail
+source /DATA/scripts/tools/_common.sh
+as_root "$@"
+
+user=${SUDO_USER:-root}
+repo="$(getent passwd "$user" | cut -d: -f6)/life-tracker"
+[[ -d $repo/.git ]] || fail "No clone at $repo"
+
+say "Getting the latest version from GitHub"
+sudo -u "$user" git -C "$repo" pull --ff-only
+echo "  $(sudo -u "$user" git -C "$repo" log -1 --format='%h: %s')"
+
+# what's in the repo -> where Home Assistant reads it
+pairs=(
+  "ha/dashboards/chores.yaml|dashboards/chores.yaml|refresh the dashboard in the app (pull down)"
+  "ha/themes/chores.yaml|themes/chores.yaml|HA → Developer tools → Actions → Reload themes"
+)
+
+todo=()
+for p in "${pairs[@]}"; do
+  IFS='|' read -r src dest after <<<"$p"
+  src="$repo/$src"; dest="$HA_CONFIG/$dest"
+  [[ -f $src ]] || fail "Missing in the repo: $src"
+  echo
+  if [[ -f $dest ]] && cmp -s "$src" "$dest"; then ok "$(basename "$(dirname "$dest")")/$(basename "$dest") is up to date"; continue; fi
+
+  say "Changes to $dest (- now, + new):"
+  if [[ -f $dest ]]; then diff -u --label now --label new "$dest" "$src" | tail -n +3 || true
+  else echo "  (new file)"; fi
+
+  if out=$(python3 "$TOOLS_DIR/_check.py" "$src"); then ok "$out"
+  else
+    rc=$?; warn "$out"
+    [[ $rc -eq 2 ]] || fail "Not installed: fix the file in the repo first."
+  fi
+
+  if ask_yes "Install it?"; then
+    mkdir -p "$(dirname "$dest")"
+    [[ -f $dest ]] && save_copy "$dest" >/dev/null
+    cp "$src" "$dest"; chmod 644 "$dest"
+    ok "Installed $dest"
+    todo+=("$after")
+  else
+    echo "  left as it was"
+  fi
+done
+
+echo
+if [[ ${#todo[@]} -eq 0 ]]; then ok "Nothing changed."; exit 0; fi
+say "To see it:"
+printf '  • %s\n' "${todo[@]}"
+say "Changed your mind? Type: undo-edit $HA_CONFIG/dashboards/chores.yaml (or …/themes/chores.yaml)"

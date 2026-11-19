@@ -17,7 +17,9 @@ def check_yaml(text):
     except ImportError:
         return 2, "can't check YAML here (PyYAML isn't installed)"
 
-    class Loader(yaml.SafeLoader):
+    # Home Assistant reads YAML with libyaml (CSafeLoader). The pure-Python loader is stricter
+    # (it rejects e.g. "{text: Log a coffee?}"), so use libyaml too when it's there.
+    class Loader(getattr(yaml, "CSafeLoader", yaml.SafeLoader)):
         pass
 
     # Home Assistant tags like !include and !secret: accept them without following them
