@@ -89,4 +89,12 @@ PY
 )
 [[ $out == "[6, 7, 8]" ]] || { echo "log check: got $out"; fails=1; }
 
+# _check: dashboard lines HA accepts (a "?" inside {text: ...}) are valid YAML
+tmp=$(mktemp --suffix=.yaml)
+echo '- {type: button, tap_action: {action: perform-action, confirmation: {text: Log a coffee?}}}' >"$tmp"
+if python3 -c "import yaml; yaml.CSafeLoader" 2>/dev/null; then
+  python3 tools/_check.py "$tmp" >/dev/null || { echo "_check rejects HA dashboard YAML"; fails=1; }
+fi
+rm -f "$tmp"
+
 [[ $fails -eq 0 ]] && echo "All checks passed" || exit 1
