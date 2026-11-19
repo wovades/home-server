@@ -1,0 +1,18 @@
+# Calibre-Web Automated (e-book library + Kobo sync), installed 2026-11-17.
+# CasaOS -> + -> Install a customized app -> Import -> Docker Compose, paste this.
+# Port 8083 · books.lan via Nginx Proxy Manager (Websockets on).
+services:
+  calibre-web-automated:
+    image: crocodilestick/calibre-web-automated:latest
+    container_name: calibre-web-automated
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Brussels
+    volumes:
+      - /DATA/AppData/calibre-web-automated/config:/config
+      - /DATA/Books/ingest:/cwa-book-ingest      # drop zone, CWA empties it
+      - /DATA/Books/library:/calibre-library     # the library
+    ports:
+      - 8083:8083
+    restart: unless-stopped
