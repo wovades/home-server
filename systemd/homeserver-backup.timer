@@ -1,0 +1,12 @@
+# Runs the backup every night at 03:30, or right after the next start if the server was off.
+# Live copy: /etc/systemd/system/homeserver-backup.timer
+# Reconstructed from notes on 2026-11-19: compare with the live file before using it.
+[Unit]
+Description=Home server nightly backup at 03:30
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

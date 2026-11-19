@@ -1,0 +1,11 @@
+# Nightly backup. Live copy: /etc/systemd/system/homeserver-backup.service
+# The real file holds the Uptime Kuma push URL (treat it like a password), so only this
+# example is in git. Reconstructed from notes on 2026-11-19: compare with the live file
+# before using it. Edit the live one with: edit /etc/systemd/system/homeserver-backup.service
+[Unit]
+Description=Home server nightly backup
+
+[Service]
+Type=oneshot
+Environment=KUMA_PUSH_URL=http://192.168.178.42:3002/api/push/<token>
+ExecStart=/usr/bin/python3 /DATA/scripts/backup.py
