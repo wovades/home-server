@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# letter-now [--force | --dry-run | --weeks-ago N | --logs] - write the weekly letter now
+# Runs Life Tracker's letter.py as you (Claude Code is logged in under your user, not root).
+# Normally a timer does this on Sunday 21:30. Without options it writes the newest finished week
+# (this week on Sunday evening) and skips a week that already has a letter.
+source /DATA/scripts/tools/_common.sh
+LETTER=/DATA/AppData/lifetracker/letter.py
+[[ $EUID -eq 0 && -n ${SUDO_USER:-} ]] && fail "Run letter-now without sudo: it must run as you."
+if [[ ${1:-} == --logs ]]; then
+  journalctl -u lifetracker-letter -n 20 --no-pager -o cat
+  exit 0
+fi
+[[ -f $LETTER ]] || fail "Life Tracker's letter.py isn't installed yet: merge the weekly letter PR, then lt-deploy."
+command -v claude > /dev/null || [[ -x $HOME/.local/bin/claude ]] \
+  || fail "Claude Code isn't installed: curl -fsSL https://claude.ai/install.sh | bash, then run: claude"
+export PATH="$HOME/.local/bin:$PATH"
+say "Writing the letter (takes up to a minute)…"
+python3 "$LETTER" "$@" && ok "Done. The notification follows within a minute; read it in Review → Letters."
