@@ -45,6 +45,9 @@ Copies kept by edit/undo-edit/restore: /DATA/edit-backups (root only, not in the
                            (shows the changes, asks; undo-edit puts the old one back)
   lt-restart               restart it and check it answers
   lt-logs [lines]          its latest messages (reminders, confirmations, errors)
+  letter-now               write the weekly letter now (normally Sunday 21:30 by itself)
+                           --dry-run: show what Claude gets · --force: write it again
+                           --weeks-ago 1: last week · --logs: what the timer said
   log-tail [lines]         the last lines of tag_log.csv (default 20)
   log-fix                  remove or fix a wrong log line safely. Taps made while you're
                            editing are kept, and each line is checked before saving.

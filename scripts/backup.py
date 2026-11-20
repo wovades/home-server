@@ -56,6 +56,8 @@ RULES = [
 EXTRA_FILES = [  # outside AppData
     os.path.abspath(__file__),  # this script itself
     "/etc/systemd/system/lifetracker.service",
+    "/etc/systemd/system/lifetracker-letter.service",
+    "/etc/systemd/system/lifetracker-letter.timer",
     "/etc/systemd/system/homeserver-backup.service",
     "/etc/systemd/system/homeserver-backup.timer",
     "/DATA/Books/library/metadata.db",  # e-book library: titles, authors, covers info (not the books)
